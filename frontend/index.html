@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Kiosk Lanchonete</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial, sans-serif;
+    background:#f5f5f5;
+}
+
+header{
+    background:#c1121f;
+    color:white;
+    text-align:center;
+    padding:20px;
+    font-size:28px;
+    font-weight:bold;
+}
+
+.container{
+    display:flex;
+    min-height:calc(100vh - 80px);
+}
+
+.produtos-area{
+    flex:3;
+    padding:25px;
+}
+
+.produtos-area h2{
+    margin-bottom:20px;
+}
+
+#produtos{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:20px;
+}
+
+.card{
+    background:white;
+    border-radius:12px;
+    padding:20px;
+    text-align:center;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
+    transition:0.2s;
+}
+
+.card:hover{
+    transform:translateY(-3px);
+}
+
+.card h3{
+    margin-bottom:10px;
+}
+
+.preco{
+    font-size:20px;
+    font-weight:bold;
+    color:#2a9d8f;
+    margin-bottom:15px;
+}
+
+.btn-add{
+    width:100%;
+    height:45px;
+    border:none;
+    border-radius:8px;
+    background:#2a9d8f;
+    color:white;
+    font-size:16px;
+    cursor:pointer;
+}
+
+.btn-add:hover{
+    opacity:0.9;
+}
+
+.carrinho-area{
+    flex:1;
+    background:white;
+    padding:20px;
+    box-shadow:-3px 0 10px rgba(0,0,0,0.1);
+}
+
+.carrinho-area h2{
+    margin-bottom:20px;
+}
+
+.item{
+    padding:10px;
+    margin-bottom:10px;
+    border-bottom:1px solid #ddd;
+}
+
+.item strong{
+    display:block;
+    margin-bottom:5px;
+}
+
+.botoes-item{
+    margin-top:10px;
+}
+
+.btn-mini{
+    width:35px;
+    height:35px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    margin-right:5px;
+}
+
+.total-box{
+    margin-top:20px;
+    padding-top:15px;
+    border-top:2px solid #ddd;
+}
+
+.total{
+    font-size:24px;
+    font-weight:bold;
+    color:#2a9d8f;
+}
+
+.finalizar{
+    width:100%;
+    height:60px;
+    margin-top:20px;
+    border:none;
+    border-radius:10px;
+    background:#2a9d8f;
+    color:white;
+    font-size:22px;
+    cursor:pointer;
+}
+
+.finalizar:hover{
+    opacity:0.9;
+}
+
+@media(max-width:900px){
+
+    .container{
+        flex-direction:column;
+    }
+
+    .carrinho-area{
+        width:100%;
+    }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+🍔 Lanchonete Kiosk
+</header>
+
+<div class="container">
+
+    <section class="produtos-area">
+
+        <h2>Cardápio</h2>
+
+        <div id="produtos"></div>
+
+    </section>
+
+    <aside class="carrinho-area">
+
+        <h2>🛒 Carrinho</h2>
+
+        <div id="carrinho"></div>
+
+        <div class="total-box">
+            Total:
+            <div class="total">
+                R$ <span id="total">0.00</span>
+            </div>
+        </div>
+
+        <button class="finalizar"
+                onclick="enviarPedido()">
+            Finalizar Pedido
+        </button>
+
+    </aside>
+
+</div>
+
+<script>
+
+let carrinho = [];
+
+// Buscar produtos
+
+fetch("http://localhost:8080/api/produtos")
+.then(res => res.json())
+.then(produtos => {
+	
+	console.log(produtos);
+
+    const div = document.getElementById("produtos");
+
+    produtos.forEach(p => {
+
+        const card = document.createElement("div");
+
+        card.className = "card";
+
+        card.innerHTML = `
+            <h3>${p.nome}</h3>
+
+            <div class="preco">
+                R$ ${p.preco}
+            </div>
+
+            <button class="btn-add">
+                Adicionar
+            </button>
+        `;
+
+        card.querySelector("button")
+            .onclick = () => adicionar(p);
+
+        div.appendChild(card);
+
+    });
+
+});
+
+// Adicionar ao carrinho
+
+function adicionar(produto){
+
+    let item = carrinho.find(
+        i => i.produto.id === produto.id
+    );
+
+    if(item){
+        item.quantidade++;
+    }
+    else{
+        carrinho.push({
+            produto: produto,
+            quantidade: 1
+        });
+    }
+
+    renderizarCarrinho();
+}
+
+// Remover item
+
+function remover(id){
+
+    carrinho = carrinho.filter(
+        i => i.produto.id !== id
+    );
+
+    renderizarCarrinho();
+}
+
+// Alterar quantidade
+
+function alterarQuantidade(id, delta){
+
+    let item = carrinho.find(
+        i => i.produto.id === id
+    );
+
+    if(!item) return;
+
+    item.quantidade += delta;
+
+    if(item.quantidade <= 0){
+        remover(id);
+    }
+
+    renderizarCarrinho();
+}
+
+// Renderizar carrinho
+
+function renderizarCarrinho(){
+
+    const div =
+        document.getElementById("carrinho");
+
+    const totalSpan =
+        document.getElementById("total");
+
+    div.innerHTML = "";
+
+    let total = 0;
+
+    carrinho.forEach(i => {
+
+        total +=
+            i.produto.preco * i.quantidade;
+
+        const linha =
+            document.createElement("div");
+
+        linha.className = "item";
+
+        linha.innerHTML = `
+            <strong>${i.produto.nome}</strong>
+
+            Quantidade: ${i.quantidade}
+            <br>
+
+            Subtotal:
+            R$ ${(i.produto.preco * i.quantidade).toFixed(2)}
+
+            <div class="botoes-item">
+
+                <button class="btn-mini"
+                onclick="alterarQuantidade(${i.produto.id},1)">
+                +
+                </button>
+
+                <button class="btn-mini"
+                onclick="alterarQuantidade(${i.produto.id},-1)">
+                -
+                </button>
+
+                <button class="btn-mini"
+                onclick="remover(${i.produto.id})">
+                ❌
+                </button>
+
+            </div>
+        `;
+
+        div.appendChild(linha);
+
+    });
+
+    totalSpan.innerText =
+        total.toFixed(2);
+}
+
+// Enviar pedido
+
+function enviarPedido(){
+
+    if(carrinho.length === 0){
+
+        alert("Carrinho vazio!");
+
+        return;
+    }
+
+    const pedido = {
+
+        itens: carrinho.map(i => ({
+
+            produto: {
+                id: i.produto.id
+            },
+
+            quantidade:
+                i.quantidade
+
+        }))
+    };
+
+    fetch(
+        "http://localhost:8080/api/pedidos",
+        {
+            method:"POST",
+
+            headers:{
+                "Content-Type":"application/json"
+            },
+
+            body:JSON.stringify(pedido)
+        }
+    )
+    .then(() => {
+
+        alert("Pedido enviado com sucesso!");
+
+        carrinho = [];
+
+        renderizarCarrinho();
+
+    })
+    .catch(() => {
+
+        alert("Erro ao enviar pedido");
+
+    });
+
+}
+
+</script>
+
+</body>
+</html>
